@@ -12,7 +12,9 @@ const raiz = path.resolve(aqui, "..");
 const aleatorio = () => crypto.randomInt(0, 2 ** 32) / 2 ** 32;
 
 // ---------------------------------------------------------------- PostgreSQL
-async function crearPostgres(url) {
+async function crearPostgres(urlOriginal) {
+  // Acepta la dirección tal como la copia Neon (quita parámetros que node-postgres no usa).
+  const url = urlOriginal.trim().replace(/[?&]channel_binding=[^&]*/, (m) => (m[0] === "?" ? "?" : "")).replace(/\?&/, "?").replace(/\?$/, "");
   const { default: pg } = await import("pg");
   const local = /localhost|127\.0\.0\.1|\.internal|^postgres(ql)?:\/\/[^@]*@[^./:]+[:/]/.test(url);
   const pool = new pg.Pool({

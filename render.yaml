@@ -15,6 +15,6 @@ services:
       - key: DATABASE_URL
         sync: false       # URL de Neon (postgresql://...); Render te la pide al crear el servicio
       - key: PIN_TIENDA
-        sync: false       # PIN para la página /tienda (canje de cupones en caja)
+        generateValue: true  # Render crea un PIN seguro; lo ves en Environment del servicio
 # Opcional, cuando tengan crédito en la API de Claude: agrega ANTHROPIC_API_KEY en
 # Environment del servicio. Sin ella, la app usa su propio banco de retos y frases.

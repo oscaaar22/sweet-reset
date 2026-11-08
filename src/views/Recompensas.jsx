@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Gift, QrCode, Check, Copy, Ticket, Star, ScanLine, ChevronDown, Candy } from "lucide-react";
 import Encabezado, { AvisoBienestar } from "../components/Encabezado.jsx";
 import { useEstado } from "../lib/store.jsx";
 import { validarCodigo, infoServidor, cuponesCanjeados } from "../lib/api.js";
+import EscanerQR from "../components/EscanerQR.jsx";
+
+const ES_DEMO = import.meta.env.MODE === "demo";
 import { SELLOS_PARA_PREMIO, formatearCodigo, generarCodigo, limpiarCodigo } from "../lib/codes.js";
 
 const MENSAJES = {
@@ -90,6 +93,8 @@ export default function Recompensas({ ir, codigoInicial }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // En la demo sin servidor se simula; en la plataforma real se usa la cámara.
+  const [camara, setCamara] = useState(false);
   const simularEscaneo = () => {
     setEscaneando(true);
     setTimeout(() => {
@@ -97,6 +102,12 @@ export default function Recompensas({ ir, codigoInicial }) {
       registrar(generarCodigo());
     }, 1800);
   };
+  const abrirEscaner = () => (ES_DEMO ? simularEscaneo() : setCamara(true));
+  const alLeerQR = useCallback((codigo) => {
+    setCamara(false);
+    registrar(codigo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const copiar = async (texto) => {
     try {
@@ -166,7 +177,7 @@ export default function Recompensas({ ir, codigoInicial }) {
         <h2 id="registrar" className="font-display text-xl font-semibold">Registra tu bolsa</h2>
         <p className="mt-1 text-[14px] text-noche/65">Escanea el QR del empaque o escribe el código que viene dentro de la bolsa.</p>
 
-        <button type="button" onClick={simularEscaneo} disabled={escaneando || enviando} className="boton-primario mt-4 w-full">
+        <button type="button" onClick={abrirEscaner} disabled={escaneando || enviando || camara} className="boton-primario mt-4 w-full">
           <QrCode size={18} /> Escanear código QR
         </button>
 
@@ -294,6 +305,8 @@ export default function Recompensas({ ir, codigoInicial }) {
         </div>,
         document.body
       )}
+
+      {camara && <EscanerQR alLeer={alLeerQR} alCerrar={() => setCamara(false)} />}
 
       {premio && createPortal(
         <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-noche/70 p-5 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="titulo-premio">

@@ -10,6 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { abrirAlmacen } from "./db.js";
+import { cargarImpresos, huella } from "./impresos.js";
 import { generarReto, claudeConfigurado, Anthropic } from "./claude.js";
 import { esCodigoValido, formatearCodigo } from "../src/lib/codes.js";
 import { CATEGORIAS_VALIDAS } from "../src/lib/prompt.js";
@@ -19,6 +20,16 @@ const raiz = path.resolve(aqui, "..");
 const PUERTO = Number(process.env.PORT || 8787);
 const almacen = await abrirAlmacen();
 const PIN_TIENDA = process.env.PIN_TIENDA || "";
+const impresos = cargarImpresos();
+console.log(`Códigos impresos registrados: ${impresos.size}`);
+// Solo se aceptan códigos impresos (lista del repositorio o de la base de datos).
+async function hayLista() {
+  return impresos.size > 0 || (await almacen.hayEmitidos());
+}
+async function esCodigoImpreso(codigo) {
+  if (impresos.size && impresos.has(await huella(codigo))) return true;
+  return almacen.esEmitido(codigo);
+}
 console.log(`Almacenamiento: ${almacen.tipo === "postgresql" ? "PostgreSQL" : "archivo local data/sweet-reset.json (solo pruebas)"}`);
 
 const app = express();
@@ -43,7 +54,7 @@ const limite = crearLimite(8);
 
 app.get("/api/salud", async (_req, res) => {
   try {
-    res.json({ ok: true, claude: claudeConfigurado(), codigosControlados: await almacen.hayEmitidos() });
+    res.json({ ok: true, claude: claudeConfigurado(), codigosControlados: await hayLista() });
   } catch (e) {
     console.error("Base de datos no disponible:", e.message);
     res.status(503).json({ ok: false });
@@ -81,7 +92,7 @@ app.post("/api/codigos/registrar", limiteCodigos, async (req, res) => {
   if (dispositivo.length < 8) return res.status(400).json({ motivo: "formato" });
   try {
     if (!esCodigoValido(codigo)) return res.status(404).json({ motivo: "invalido" });
-    if ((await almacen.hayEmitidos()) && !(await almacen.esEmitido(codigo))) return res.status(404).json({ motivo: "invalido" });
+    if ((await hayLista()) && !(await esCodigoImpreso(codigo))) return res.status(404).json({ motivo: "invalido" });
     const r = await almacen.registrar(codigo, dispositivo);
     if (!r.ok) return res.status(409).json({ motivo: r.motivo });
     res.json({ ok: true, codigo, sellos: r.sellos, premio: r.premio, cupon: r.cupon });

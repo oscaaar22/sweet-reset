@@ -92,11 +92,61 @@ export const PATRONES_RESPIRACION = [
 ];
 
 export const SONIDOS = [
-  { id: "lluvia", nombre: "Lluvia suave", descripcion: "Lluvia constante sobre el techo", color: "cielo" },
-  { id: "olas", nombre: "Olas del mar", descripcion: "Oleaje lento que va y viene", color: "lavanda" },
-  { id: "bosque", nombre: "Bosque al amanecer", descripcion: "Viento entre árboles y pájaros", color: "menta" },
-  { id: "estrellas", nombre: "Cielo estrellado", descripcion: "Música ambiental en notas suaves", color: "rosa" },
+  { id: "lluvia", grupo: "naturaleza", nombre: "Lluvia suave", descripcion: "Lluvia constante sobre el techo", color: "cielo" },
+  { id: "olas", grupo: "naturaleza", nombre: "Olas del mar", descripcion: "Oleaje lento que va y viene", color: "lavanda" },
+  { id: "bosque", grupo: "naturaleza", nombre: "Bosque al amanecer", descripcion: "Viento entre árboles y pájaros", color: "menta" },
+  { id: "estrellas", grupo: "naturaleza", nombre: "Cielo estrellado", descripcion: "Música ambiental en notas suaves", color: "rosa" },
+  { id: "ruido-blanco", grupo: "ruido", nombre: "Ruido blanco", descripcion: "Tapa el ruido de fuera para estudiar o dormir", color: "cielo" },
+  { id: "ruido-rosa", grupo: "ruido", nombre: "Ruido rosa", descripcion: "Más suave que el blanco, como lluvia pareja", color: "rosa" },
+  { id: "ruido-cafe", grupo: "ruido", nombre: "Ruido café", descripcion: "Grave y profundo, como un avión en vuelo", color: "miel" },
+  { id: "hz-432", grupo: "frecuencia", nombre: "432 Hz · Calma", descripcion: "Tono cálido y envolvente para bajar el ritmo", color: "lavanda" },
+  { id: "hz-528", grupo: "frecuencia", nombre: "528 Hz · Armonía", descripcion: "Tono luminoso para empezar el día tranquilo", color: "menta" },
+  { id: "alfa", grupo: "frecuencia", nombre: "Ondas alfa · Enfoque", descripcion: "Pulso de 10 Hz para concentrarte relajado", color: "cielo", audifonos: true },
+  { id: "theta", grupo: "frecuencia", nombre: "Ondas theta · Relajación", descripcion: "Pulso de 6 Hz para soltar la tensión", color: "rosa", audifonos: true },
+  { id: "delta", grupo: "frecuencia", nombre: "Ondas delta · Dormir", descripcion: "Pulso de 2 Hz para preparar el sueño", color: "lavanda", audifonos: true },
 ];
+
+export const GRUPOS_SONIDO = [
+  { id: "naturaleza", nombre: "Naturaleza" },
+  { id: "ruido", nombre: "Ruido de fondo" },
+  { id: "frecuencia", nombre: "Frecuencias relajantes" },
+];
+
+// Tarjetas de mensajes lindos: "para ti" (leer) y "para alguien" (mandarlo a otra persona).
+export const MENSAJES_LINDOS = {
+  ti: [
+    "Eres más fuerte de lo que te sientes hoy.",
+    "Alguien en el mundo sonríe cuando piensa en ti.",
+    "Mereces la misma paciencia que les tienes a los demás.",
+    "Tu esfuerzo cuenta, aunque nadie lo esté viendo.",
+    "Hoy no tienes que ser perfecto, solo ser tú.",
+    "Tu sonrisa le cambia el día a más gente de la que crees.",
+    "Llegaste hasta aquí. Eso ya es mucho.",
+    "Eres un lugar seguro para otras personas. Sé uno para ti también.",
+    "Lo bonito que das, regresa.",
+    "Tienes permiso de descansar sin sentir culpa.",
+    "El mundo es un poquito más dulce contigo en él.",
+    "Tus sueños no tienen fecha de caducidad.",
+    "Hoy date el mismo cariño que le darías a tu mejor amigo.",
+    "No eres demasiado. Eres justo lo que eres, y está bien.",
+    "Brillas incluso en los días nublados.",
+    "Estás creciendo, aunque todavía no lo notes.",
+  ],
+  alguien: [
+    "Gracias por estar, incluso cuando no te lo digo.",
+    "Me alegra que la vida nos haya cruzado.",
+    "Pensé en ti y me dio gusto. Eso es todo. 💜",
+    "Eres de mis personas favoritas.",
+    "Tu forma de ser hace todo más ligero.",
+    "Si hoy está pesado, aquí estoy para lo que necesites.",
+    "Me inspiras más de lo que te imaginas.",
+    "Contigo hasta los días grises tienen color.",
+    "Te mando un abrazo en forma de mensaje.",
+    "Que hoy te pase algo tan bonito como tú.",
+    "No sé qué haría sin tus ocurrencias.",
+    "Estoy orgulloso(a) de ti. Siempre.",
+  ],
+};
 
 /** Número de día desde 2024-01-01 en hora local, para elegir el reto del día. */
 export function numeroDeDia(fecha = new Date()) {

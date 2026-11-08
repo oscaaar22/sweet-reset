@@ -1,5 +1,6 @@
 import { Music2, Wind, Sparkles, Gift, ChevronRight, Flame, Clock, Heart } from "lucide-react";
 import CieloEstrellado from "../components/CieloEstrellado.jsx";
+import MensajesLindos from "../components/MensajesLindos.jsx";
 import { Marca, AvisoBienestar } from "../components/Encabezado.jsx";
 import { useEstado, calcularRacha } from "../lib/store.jsx";
 import { claveDia, fraseDelDia, retoDelDia, CATEGORIAS } from "../lib/contenido.js";
@@ -21,7 +22,7 @@ export default function Inicio({ ir }) {
   const pendientes = estado.cupones.filter((c) => !c.canjeado).length;
 
   const secciones = [
-    { id: "escucha", titulo: "Escucha", sub: "Música y sonidos", Icono: Music2, tono: "bg-cielo-100 text-[#4A6FB0]" },
+    { id: "escucha", titulo: "Escucha", sub: "Sonidos y frecuencias", Icono: Music2, tono: "bg-cielo-100 text-[#4A6FB0]" },
     { id: "respira", titulo: "Respira", sub: "Pausas guiadas", Icono: Wind, tono: "bg-menta-100 text-menta-500" },
     { id: "reto", titulo: "Mi reto", sub: retoHoy?.completado ? "Completado hoy" : "Actividad del día", Icono: Sparkles, tono: "bg-rosa-100 text-rosa-400" },
     {
@@ -97,6 +98,8 @@ export default function Inicio({ ir }) {
         </div>
         <ChevronRight className="shrink-0 text-lavanda-400" />
       </button>
+
+      <MensajesLindos />
 
       <section aria-label="Tu progreso" className="grid grid-cols-3 gap-3">
         {[

@@ -1,15 +1,20 @@
 import { useEffect, useState } from "react";
-import { Play, Pause, Volume2, CloudRain, Waves, Trees, Moon, Timer } from "lucide-react";
+import { Play, Pause, Volume2, CloudRain, Waves, Trees, Moon, Timer, Wind, Radio, AudioLines, AudioWaveform, Headphones, Sun, Brain, Sparkles, BedDouble } from "lucide-react";
 import Encabezado, { AvisoBienestar } from "../components/Encabezado.jsx";
-import { SONIDOS } from "../lib/contenido.js";
+import { SONIDOS, GRUPOS_SONIDO } from "../lib/contenido.js";
 import { useReproductor, reproductor } from "../lib/reproductor.js";
 
-const ICONOS = { lluvia: CloudRain, olas: Waves, bosque: Trees, estrellas: Moon };
+const ICONOS = {
+  lluvia: CloudRain, olas: Waves, bosque: Trees, estrellas: Moon,
+  "ruido-blanco": Radio, "ruido-rosa": AudioLines, "ruido-cafe": Wind,
+  "hz-432": AudioWaveform, "hz-528": Sun, alfa: Brain, theta: Sparkles, delta: BedDouble,
+};
 const TONOS = {
   cielo: "from-cielo-200 to-cielo-100 text-[#4A6FB0]",
   lavanda: "from-lavanda-200 to-lavanda-100 text-lavanda-600",
   menta: "from-menta-300/70 to-menta-100 text-menta-500",
   rosa: "from-rosa-200 to-rosa-100 text-rosa-400",
+  miel: "from-miel-300/60 to-miel-100 text-miel-500",
 };
 const DURACIONES = [5, 10, 15, 30];
 
@@ -57,6 +62,11 @@ export default function Escucha({ ir }) {
         </div>
         <h2 className="mt-4 font-display text-2xl font-semibold text-noche">{activo.nombre}</h2>
         <p className="text-sm text-noche/65">{activo.descripcion}</p>
+        {activo.audifonos && (
+          <p className="mx-auto mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/70 px-3 py-1 text-[12px] font-bold text-noche/75">
+            <Headphones size={14} /> Funciona con audífonos
+          </p>
+        )}
 
         <div className="mx-auto mt-5 max-w-xs">
           <div className="h-1.5 overflow-hidden rounded-full bg-white/70" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progreso * 100)} aria-label="Tiempo de la sesión">
@@ -94,38 +104,45 @@ export default function Escucha({ ir }) {
         </div>
       </section>
 
-      <h2 className="mb-3 mt-7 font-display text-xl font-semibold">Sonidos</h2>
-      <ul className="grid gap-3">
-        {SONIDOS.map((s) => {
-          const I = ICONOS[s.id];
-          const esteSuena = r.id === s.id;
-          const elegido = (r.id || seleccion) === s.id;
-          return (
-            <li key={s.id}>
-              <button
-                type="button"
-                onClick={() => {
-                  setSeleccion(s.id);
-                  if (esteSuena) reproductor.detener();
-                  else reproductor.reproducir(s.id);
-                }}
-                className={`tarjeta flex w-full items-center gap-4 p-3.5 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-lavanda-300 ${elegido ? "ring-2 ring-lavanda-400" : "hover:bg-white"}`}
-              >
-                <span className={`grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br ${TONOS[s.color]}`}>
-                  <I size={22} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block font-extrabold">{s.nombre}</span>
-                  <span className="block text-[13px] text-noche/60">{s.descripcion}</span>
-                </span>
-                <span className={`grid h-9 w-9 place-items-center rounded-full ${esteSuena ? "bg-lavanda-500 text-white" : "bg-lavanda-50 text-lavanda-500"}`} aria-hidden="true">
-                  {esteSuena ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      {GRUPOS_SONIDO.map((g) => (
+        <section key={g.id} aria-labelledby={`grupo-${g.id}`}>
+          <h2 id={`grupo-${g.id}`} className="mb-3 mt-7 font-display text-xl font-semibold">{g.nombre}</h2>
+          {g.id === "frecuencia" && (
+            <p className="-mt-1 mb-3 text-[13px] text-noche/60">Las ondas alfa, theta y delta son pulsos binaurales: úsalas con audífonos y a volumen bajo.</p>
+          )}
+          <ul className="grid gap-3">
+            {SONIDOS.filter((s) => s.grupo === g.id).map((s) => {
+              const I = ICONOS[s.id];
+              const esteSuena = r.id === s.id;
+              const elegido = (r.id || seleccion) === s.id;
+              return (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSeleccion(s.id);
+                      if (esteSuena) reproductor.detener();
+                      else reproductor.reproducir(s.id);
+                    }}
+                    className={`tarjeta flex w-full items-center gap-4 p-3.5 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-lavanda-300 ${elegido ? "ring-2 ring-lavanda-400" : "hover:bg-white"}`}
+                  >
+                    <span className={`grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br ${TONOS[s.color]}`}>
+                      <I size={22} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-extrabold">{s.nombre}</span>
+                      <span className="block text-[13px] text-noche/60">{s.descripcion}</span>
+                    </span>
+                    <span className={`grid h-9 w-9 place-items-center rounded-full ${esteSuena ? "bg-lavanda-500 text-white" : "bg-lavanda-50 text-lavanda-500"}`} aria-hidden="true">
+                      {esteSuena ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
       <p className="mt-4 text-center text-[12px] text-noche/55">Los sonidos se generan en tu celular en tiempo real; no gastan datos.</p>
       <AvisoBienestar />
     </div>

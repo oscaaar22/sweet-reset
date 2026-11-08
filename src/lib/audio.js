@@ -134,6 +134,46 @@ export class Paisaje {
       zumbido.connect(gZ); gZ.connect(lp); zumbido.start();
       this._cada(1500, 3400, () => this._nota(notas[Math.floor(Math.random() * notas.length)]));
     }
+    if (id.startsWith("ruido-")) {
+      // Ruido de color con un filtro suave para que no canse el oído.
+      const tipo = { "ruido-blanco": "blanco", "ruido-rosa": "rosa", "ruido-cafe": "cafe" }[id];
+      const lp = this._nodo(ctx.createBiquadFilter()); lp.type = "lowpass";
+      lp.frequency.value = tipo === "blanco" ? 9000 : tipo === "rosa" ? 7000 : 1800;
+      const g = this._nodo(ctx.createGain()); g.gain.value = tipo === "blanco" ? 0.16 : tipo === "rosa" ? 0.42 : 0.6;
+      this._fuenteRuido(tipo).connect(lp); lp.connect(g); g.connect(salida);
+    }
+
+    if (id === "hz-432" || id === "hz-528") {
+      // Tono puro con armónicos suaves (octava abajo y quinta) que respiran lento.
+      const f = id === "hz-432" ? 432 : 528;
+      const g = this._nodo(ctx.createGain()); g.gain.value = 0.11;
+      const lfo = this._nodo(ctx.createOscillator()); lfo.frequency.value = 0.08;
+      const lfoG = this._nodo(ctx.createGain()); lfoG.gain.value = 0.035;
+      lfo.connect(lfoG); lfoG.connect(g.gain); lfo.start();
+      g.connect(salida);
+      [[f, 0.55], [f / 2, 0.9], [f * 1.5, 0.12], [f * 2, 0.06]].forEach(([fr, v], i) => {
+        const o = this._nodo(ctx.createOscillator()); o.type = "sine"; o.frequency.value = fr; o.detune.value = i ? (i % 2 ? 3 : -3) : 0;
+        const gv = this._nodo(ctx.createGain()); gv.gain.value = v;
+        o.connect(gv); gv.connect(g); o.start();
+      });
+    }
+
+    if (id === "alfa" || id === "theta" || id === "delta") {
+      // Pulso binaural: cada oído recibe un tono distinto y el cerebro percibe la diferencia (con audífonos).
+      const pulso = { alfa: 10, theta: 6, delta: 2 }[id];
+      const base = { alfa: 220, theta: 180, delta: 140 }[id];
+      const mezcla = this._nodo(ctx.createChannelMerger(2));
+      const g = this._nodo(ctx.createGain()); g.gain.value = 0.16;
+      mezcla.connect(g); g.connect(salida);
+      [base, base + pulso].forEach((fr, canal) => {
+        const o = this._nodo(ctx.createOscillator()); o.type = "sine"; o.frequency.value = fr;
+        o.connect(mezcla, 0, canal); o.start();
+      });
+      // Cama de ruido rosa muy baja para que el tono no se sienta "pelón".
+      const lp = this._nodo(ctx.createBiquadFilter()); lp.type = "lowpass"; lp.frequency.value = 1200;
+      const gR = this._nodo(ctx.createGain()); gR.gain.value = 0.07;
+      this._fuenteRuido("rosa").connect(lp); lp.connect(gR); gR.connect(salida);
+    }
   }
 
   _gota(salida) {

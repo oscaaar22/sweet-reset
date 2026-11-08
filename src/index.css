@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Sweet Reset: un solo look deliberado (cielo pastel claro) en cualquier tema del sistema. */
+:root {
+  color-scheme: light;
+  --fondo: #F6F3FF;
+  --tinta: #2E2A5C;
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: radial-gradient(120% 60% at 50% 0%, #ECE6FF 0%, var(--fondo) 55%, #FFF4F8 100%) fixed, var(--fondo);
+  color: var(--tinta);
+  font-family: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3 { text-wrap: balance; }
+
+@layer components {
+  .tarjeta {
+    @apply rounded-[22px] bg-white/80 shadow-suave ring-1 ring-lavanda-200/70 backdrop-blur;
+  }
+  .boton {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 font-bold transition
+      active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-50
+      focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-lavanda-300;
+  }
+  .boton-primario { @apply boton bg-lavanda-500 text-white shadow-nube hover:bg-lavanda-600; }
+  .boton-suave { @apply boton bg-white text-lavanda-600 ring-1 ring-lavanda-200 hover:bg-lavanda-50; }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold tracking-wide;
+  }
+  .etiqueta { @apply text-[11px] font-extrabold uppercase tracking-[0.14em] text-lavanda-500; }
+}
+
+.voltear { perspective: 1200px; }
+.voltear-interior { transition: transform .8s cubic-bezier(.2,.7,.2,1); transform-style: preserve-3d; }
+.voltear-interior.volteada { transform: rotateY(180deg); }
+.cara { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.cara-atras { transform: rotateY(180deg); }
+
+input[type="range"] { accent-color: #7E6BB8; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

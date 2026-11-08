@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Caja · Sweet Reset</title>
+<style>
+  :root { --bg:#F6F4FB; --fg:#2E2A5C; --suave:#6B6790; --tarjeta:#fff; --borde:#E2DEF0; --ok:#2F8F5B; --mal:#C2410C; --acento:#7E6BB8; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; padding:24px max(16px, env(safe-area-inset-left)); }
+  main { max-width:440px; margin:0 auto; display:grid; gap:16px; }
+  h1 { font-size:22px; margin:0; }
+  p { margin:0; color:var(--suave); }
+  .tarjeta { background:var(--tarjeta); border:1px solid var(--borde); border-radius:16px; padding:20px; display:grid; gap:12px; }
+  label { font-size:13px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--suave); }
+  input { width:100%; font:inherit; font-size:20px; padding:12px 14px; border:1px solid var(--borde); border-radius:12px; text-transform:uppercase; letter-spacing:.08em; }
+  button { font:inherit; font-weight:700; padding:12px 16px; border-radius:12px; border:0; background:var(--fg); color:#fff; cursor:pointer; }
+  button.sec { background:#fff; color:var(--fg); border:1px solid var(--borde); }
+  button:disabled { opacity:.5; }
+  .fila { display:flex; gap:8px; flex-wrap:wrap; }
+  .fila > * { flex:1 1 140px; }
+  #resultado { font-size:17px; font-weight:600; min-height:1.5em; }
+  .ok { color:var(--ok); } .mal { color:var(--mal); }
+  dl { display:grid; grid-template-columns:1fr auto; gap:4px 12px; margin:0; }
+  dd { margin:0; font-weight:700; text-align:right; }
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <h1>Caja · Sweet Reset</h1>
+    <p>Verifica y canjea los cupones de paquete gratis que muestran los clientes.</p>
+  </div>
+  <form class="tarjeta" id="f">
+    <label for="pin">PIN de tienda</label>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" required>
+    <label for="cupon">Cupón del cliente</label>
+    <input id="cupon" placeholder="NSR-XXXXXX" autocomplete="off" required>
+    <div class="fila">
+      <button type="button" class="sec" id="verificar">Verificar</button>
+      <button type="submit" id="canjear">Canjear</button>
+    </div>
+    <div id="resultado" role="status"></div>
+  </form>
+  <section class="tarjeta">
+    <div class="fila"><button type="button" class="sec" id="ver-resumen">Ver resumen</button></div>
+    <dl id="resumen" hidden></dl>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+try { $("pin").value = sessionStorage.getItem("pin") || ""; } catch {}
+const fecha = (f) => new Date(f).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
+function mostrar(texto, bien) { const r = $("resultado"); r.textContent = texto; r.className = bien ? "ok" : "mal"; }
+async function pedir(url, cuerpo) {
+  const r = await fetch(url, cuerpo ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cuerpo) } : undefined);
+  return { r, j: await r.json().catch(() => ({})) };
+}
+$("verificar").onclick = async () => {
+  const c = $("cupon").value.trim();
+  if (!c) return mostrar("Escribe el cupón.", false);
+  const { r, j } = await pedir("/api/cupones/" + encodeURIComponent(c));
+  if (r.status === 404) return mostrar("Ese cupón no existe. No lo entregues.", false);
+  if (!r.ok) return mostrar("No se pudo verificar. Intenta de nuevo.", false);
+  if (j.canjeado) return mostrar(`${j.cupon} ya se canjeó el ${fecha(j.canjeado)}.`, false);
+  mostrar(`${j.cupon} es válido (ganado el ${fecha(j.creado)}). Puedes canjearlo.`, true);
+};
+$("f").onsubmit = async (e) => {
+  e.preventDefault();
+  try { sessionStorage.setItem("pin", $("pin").value); } catch {}
+  $("canjear").disabled = true;
+  const { r, j } = await pedir("/api/cupones/canjear", { pin: $("pin").value, cupon: $("cupon").value });
+  $("canjear").disabled = false;
+  if (r.ok) { mostrar(`Listo: ${j.cupon.cupon} canjeado. Entrega un paquete gratis.`, true); $("cupon").value = ""; return; }
+  if (j.motivo === "canjeado") return mostrar(`Este cupón ya se canjeó el ${fecha(j.cupon.canjeado)}. No lo entregues.`, false);
+  if (j.motivo === "no-existe") return mostrar("Ese cupón no existe. No lo entregues.", false);
+  mostrar(j.error || "No se pudo canjear.", false);
+};
+$("ver-resumen").onclick = async () => {
+  const { r, j } = await pedir("/api/tienda/resumen", { pin: $("pin").value });
+  if (!r.ok) return mostrar("PIN incorrecto.", false);
+  const d = $("resumen");
+  d.replaceChildren();
+  for (const [k, v] of [["Códigos impresos", j.emitidos], ["Códigos registrados", j.registrados], ["Cupones ganados", j.cupones], ["Cupones canjeados", j.canjeados]]) {
+    const dt = document.createElement("dt"); dt.textContent = k;
+    const dd = document.createElement("dd"); dd.textContent = v;
+    d.append(dt, dd);
+  }
+  d.hidden = false;
+};
+</script>
+</body>
+</html>

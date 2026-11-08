@@ -39,6 +39,12 @@ async function crearPostgres(urlOriginal) {
       fecha TIMESTAMPTZ NOT NULL DEFAULT now(),
       cupon TEXT REFERENCES cupones(cupon)
     );
+    CREATE TABLE IF NOT EXISTS clientes (
+      id TEXT PRIMARY KEY,
+      nombre TEXT NOT NULL,
+      telefono TEXT NOT NULL UNIQUE,
+      creado TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
     CREATE INDEX IF NOT EXISTS codigos_usados_disp ON codigos_usados (dispositivo) WHERE cupon IS NULL;
   `);
 
@@ -103,8 +109,63 @@ async function crearPostgres(urlOriginal) {
       }
     },
     async consultarCupon(cupon) {
-      const r = await pool.query("SELECT cupon, creado, canjeado FROM cupones WHERE cupon = $1", [cupon]);
+      const r = await pool.query(
+        `SELECT c.cupon, c.creado, c.canjeado, cl.nombre, cl.telefono
+           FROM cupones c LEFT JOIN clientes cl ON cl.id = c.dispositivo WHERE c.cupon = $1`,
+        [cupon]
+      );
       return r.rows[0] || null;
+    },
+    // Registro sin contraseña: el celular identifica al cliente. Si ya existe, se recupera su cuenta.
+    async registrarCliente({ nombre, telefono, anterior }) {
+      const c = await pool.connect();
+      try {
+        await c.query("BEGIN");
+        let r = await c.query("SELECT id, nombre, telefono, creado FROM clientes WHERE telefono = $1", [telefono]);
+        let nuevo = false;
+        if (!r.rowCount) {
+          r = await c.query(
+            "INSERT INTO clientes (id, nombre, telefono) VALUES ($1, $2, $3) ON CONFLICT (telefono) DO UPDATE SET telefono = EXCLUDED.telefono RETURNING id, nombre, telefono, creado",
+            [crypto.randomUUID(), nombre, telefono]
+          );
+          nuevo = true;
+        }
+        const cliente = r.rows[0];
+        // Pasa a la cuenta los sellos que ese celular juntó antes de registrarse.
+        if (anterior && anterior !== cliente.id) {
+          const ya = await c.query("SELECT 1 FROM clientes WHERE id = $1", [anterior]);
+          if (!ya.rowCount) {
+            await c.query("UPDATE codigos_usados SET dispositivo = $1 WHERE dispositivo = $2", [cliente.id, anterior]);
+            await c.query("UPDATE cupones SET dispositivo = $1 WHERE dispositivo = $2", [cliente.id, anterior]);
+          }
+        }
+        await c.query("COMMIT");
+        return { cliente, nuevo };
+      } catch (e) {
+        await c.query("ROLLBACK").catch(() => {});
+        throw e;
+      } finally {
+        c.release();
+      }
+    },
+    async clientePorId(id) {
+      const r = await pool.query("SELECT id, nombre, telefono, creado FROM clientes WHERE id = $1", [id]);
+      return r.rows[0] || null;
+    },
+    async estadoCliente(id) {
+      const s = await pool.query("SELECT codigo, fecha FROM codigos_usados WHERE dispositivo = $1 AND cupon IS NULL ORDER BY fecha, codigo", [id]);
+      const u = await pool.query("SELECT codigo FROM codigos_usados WHERE dispositivo = $1", [id]);
+      const c = await pool.query("SELECT cupon, creado, canjeado FROM cupones WHERE dispositivo = $1 ORDER BY creado DESC", [id]);
+      return { sellos: s.rows, usados: u.rows.map((x) => x.codigo), cupones: c.rows };
+    },
+    async listaClientes() {
+      const r = await pool.query(`SELECT cl.nombre, cl.telefono, cl.creado,
+          (SELECT count(*) FROM codigos_usados u WHERE u.dispositivo = cl.id)::int AS codigos,
+          (SELECT max(fecha) FROM codigos_usados u WHERE u.dispositivo = cl.id) AS ultimo,
+          (SELECT count(*) FROM cupones k WHERE k.dispositivo = cl.id)::int AS cupones,
+          (SELECT count(*) FROM cupones k WHERE k.dispositivo = cl.id AND k.canjeado IS NOT NULL)::int AS canjeados
+        FROM clientes cl ORDER BY cl.creado DESC`);
+      return r.rows;
     },
     async canjearCupon(cupon) {
       const r = await pool.query(
@@ -120,7 +181,8 @@ async function crearPostgres(urlOriginal) {
         (SELECT count(*) FROM codigos_emitidos)::int AS emitidos,
         (SELECT count(*) FROM codigos_usados)::int AS registrados,
         (SELECT count(*) FROM cupones)::int AS cupones,
-        (SELECT count(*) FROM cupones WHERE canjeado IS NOT NULL)::int AS canjeados`);
+        (SELECT count(*) FROM cupones WHERE canjeado IS NOT NULL)::int AS canjeados,
+        (SELECT count(*) FROM clientes)::int AS clientes`);
       return r.rows[0];
     },
     cerrar: () => pool.end(),
@@ -131,7 +193,7 @@ async function crearPostgres(urlOriginal) {
 function crearArchivo() {
   const archivo = path.join(raiz, "data", "sweet-reset.json");
   const txtEmitidos = path.join(raiz, "data", "codigos-emitidos.txt");
-  let d = { emitidos: [], usados: {}, cupones: {} };
+  let d = { emitidos: [], usados: {}, cupones: {}, clientes: {} };
   try { d = { ...d, ...JSON.parse(fs.readFileSync(archivo, "utf8")) }; } catch { /* primera vez */ }
   try {
     const extra = fs.readFileSync(txtEmitidos, "utf8").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
@@ -167,7 +229,44 @@ function crearArchivo() {
       guardar();
       return { ok: true, sellos: cupon ? pend.length - SELLOS_PARA_PREMIO : pend.length, premio: Boolean(cupon), cupon };
     },
-    async consultarCupon(c) { return d.cupones[c] || null; },
+    async consultarCupon(c) {
+      const x = d.cupones[c];
+      if (!x) return null;
+      const cl = d.clientes[x.dispositivo];
+      return { ...x, nombre: cl?.nombre || null, telefono: cl?.telefono || null };
+    },
+    async registrarCliente({ nombre, telefono, anterior }) {
+      let cliente = Object.values(d.clientes).find((c) => c.telefono === telefono);
+      let nuevo = false;
+      if (!cliente) {
+        cliente = { id: crypto.randomUUID(), nombre, telefono, creado: new Date().toISOString() };
+        d.clientes[cliente.id] = cliente;
+        nuevo = true;
+      }
+      if (anterior && anterior !== cliente.id && !d.clientes[anterior]) {
+        Object.values(d.usados).forEach((u) => { if (u.dispositivo === anterior) u.dispositivo = cliente.id; });
+        Object.values(d.cupones).forEach((u) => { if (u.dispositivo === anterior) u.dispositivo = cliente.id; });
+      }
+      guardar();
+      return { cliente, nuevo };
+    },
+    async clientePorId(id) { return d.clientes[id] || null; },
+    async estadoCliente(id) {
+      const us = Object.entries(d.usados).filter(([, u]) => u.dispositivo === id);
+      return {
+        sellos: us.filter(([, u]) => !u.cupon).map(([codigo, u]) => ({ codigo, fecha: u.fecha })),
+        usados: us.map(([c]) => c),
+        cupones: Object.values(d.cupones).filter((c) => c.dispositivo === id).map(({ cupon, creado, canjeado }) => ({ cupon, creado, canjeado })),
+      };
+    },
+    async listaClientes() {
+      return Object.values(d.clientes).map((cl) => {
+        const us = Object.values(d.usados).filter((u) => u.dispositivo === cl.id);
+        const cs = Object.values(d.cupones).filter((c) => c.dispositivo === cl.id);
+        return { nombre: cl.nombre, telefono: cl.telefono, creado: cl.creado, codigos: us.length,
+          ultimo: us.map((u) => u.fecha).sort().pop() || null, cupones: cs.length, canjeados: cs.filter((c) => c.canjeado).length };
+      });
+    },
     async canjearCupon(c) {
       const x = d.cupones[c];
       if (!x) return { ok: false, motivo: "no-existe" };
@@ -178,7 +277,7 @@ function crearArchivo() {
     },
     async resumen() {
       const cs = Object.values(d.cupones);
-      return { emitidos: emitidos.size, registrados: Object.keys(d.usados).length, cupones: cs.length, canjeados: cs.filter((x) => x.canjeado).length };
+      return { emitidos: emitidos.size, registrados: Object.keys(d.usados).length, cupones: cs.length, canjeados: cs.filter((x) => x.canjeado).length, clientes: Object.keys(d.clientes).length };
     },
     cerrar: async () => {},
   };

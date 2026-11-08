@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Gift, QrCode, Check, Copy, Ticket, Star, ScanLine, ChevronDown, Candy } from "lucide-react";
+import { Gift, QrCode, Check, Copy, Ticket, Star, ScanLine, ChevronDown, Candy, UserRound } from "lucide-react";
 import Encabezado, { AvisoBienestar } from "../components/Encabezado.jsx";
 import { useEstado } from "../lib/store.jsx";
-import { validarCodigo, infoServidor, cuponesCanjeados } from "../lib/api.js";
+import { validarCodigo, infoServidor, cuponesCanjeados, clienteGuardado, cargarCliente, cerrarCuenta } from "../lib/api.js";
 import EscanerQR from "../components/EscanerQR.jsx";
+import RegistroCliente from "../components/RegistroCliente.jsx";
+import { SELLOS_PARA_PREMIO, formatearCodigo, generarCodigo, limpiarCodigo } from "../lib/codes.js";
 
 const ES_DEMO = import.meta.env.MODE === "demo";
-import { SELLOS_PARA_PREMIO, formatearCodigo, generarCodigo, limpiarCodigo } from "../lib/codes.js";
 
 const MENSAJES = {
   formato: "El código tiene 8 caracteres después de NS, por ejemplo NS-7KQ3-M9TB.",
@@ -30,7 +31,9 @@ function mascara(texto) {
 }
 
 export default function Recompensas({ ir, codigoInicial }) {
-  const { estado, registrarSello, canjearCupon } = useEstado();
+  const { estado, registrarSello, canjearCupon, sincronizar, vaciarTarjeta } = useEstado();
+  const [cliente, setCliente] = useState(() => (ES_DEMO ? null : clienteGuardado()));
+  const [registro, setRegistro] = useState(null); // { motivo, pendiente }
   const [codigo, setCodigo] = useState(codigoInicial ? mascara(codigoInicial) : "");
   const [error, setError] = useState("");
   const [exito, setExito] = useState("");
@@ -53,6 +56,15 @@ export default function Recompensas({ ir, codigoInicial }) {
       if (!vivo) return;
       setServidor(info);
       if (!info.servidor) return;
+      // Con cuenta, la tarjeta se trae del servidor (igual en cualquier celular).
+      const c = await cargarCliente();
+      if (!vivo) return;
+      if (c?.estado) {
+        setCliente(c.cliente);
+        sincronizar(c.estado);
+        return;
+      }
+      if (c?.sinCuenta) setCliente(null);
       const pendientes = estadoRef.current.cupones.filter((c) => !c.canjeado).map((c) => c.cupon);
       const canjeados = await cuponesCanjeados(pendientes);
       if (vivo) canjeados.forEach((c) => canjearCupon(c));
@@ -68,8 +80,19 @@ export default function Recompensas({ ir, codigoInicial }) {
     if (!formateado) return setError(MENSAJES.formato);
     if (estadoRef.current.usados.includes(formateado)) return setError(MENSAJES.repetido);
     setEnviando(true);
+    const info = await infoServidor();
+    // En la plataforma real, cada sello va a la cuenta del cliente: si no tiene, primero se registra.
+    if (info.servidor && !clienteGuardado()) {
+      setEnviando(false);
+      setCliente(null);
+      return setRegistro({ motivo: "codigo", pendiente: formateado });
+    }
     const v = await validarCodigo(formateado);
     setEnviando(false);
+    if (v.motivo === "sin-cuenta") {
+      setCliente(null);
+      return setRegistro({ motivo: "codigo", pendiente: formateado });
+    }
     if (!v.ok) return setError(MENSAJES[v.motivo] || MENSAJES.invalido);
     const r = registrarSello(formateado, estadoRef.current, v.servidor);
     if (!r.ok) return setError(MENSAJES[r.motivo] || MENSAJES.invalido);
@@ -82,6 +105,28 @@ export default function Recompensas({ ir, codigoInicial }) {
       setNuevoSello(estadoRef.current.sellos.length);
       setExito(`Código ${r.codigo} registrado. ¡Sumaste un sello!`);
     }
+    // Deja la tarjeta idéntica a la del servidor.
+    if (v.servidor) cargarCliente().then((c) => c?.estado && sincronizar(c.estado));
+  };
+
+  const alRegistrarse = ({ cliente: c, nuevo, estado: e }) => {
+    const pendiente = registro?.pendiente;
+    setRegistro(null);
+    setCliente(c);
+    sincronizar(e);
+    const nombre = c.nombre.split(" ")[0];
+    setExito(nuevo ? `¡Listo, ${nombre}! Tu tarjeta quedó creada.` : `¡Hola de nuevo, ${nombre}! Recuperamos tu tarjeta.`);
+    if (pendiente) setTimeout(() => registrar(pendiente), 0);
+  };
+
+  const cerrarRegistro = useCallback(() => setRegistro(null), []);
+
+  const noSoyYo = () => {
+    cerrarCuenta();
+    setCliente(null);
+    vaciarTarjeta();
+    setError("");
+    setExito("");
   };
 
   const autoRegistro = useRef(false);
@@ -174,6 +219,13 @@ export default function Recompensas({ ir, codigoInicial }) {
       </section>
 
       <section className="tarjeta mt-5 p-5" aria-labelledby="registrar">
+        {cliente && (
+          <div className="mb-4 flex items-center gap-3 rounded-2xl bg-lavanda-50 px-3 py-2.5 ring-1 ring-lavanda-200">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-lavanda-500 ring-1 ring-lavanda-200"><UserRound size={18} /></span>
+            <p className="min-w-0 flex-1 truncate text-[14px] font-bold text-noche">Hola, {cliente.nombre.split(" ")[0]}</p>
+            <button type="button" onClick={noSoyYo} className="shrink-0 text-[12.5px] font-bold text-lavanda-600 underline underline-offset-2">¿No eres tú?</button>
+          </div>
+        )}
         <h2 id="registrar" className="font-display text-xl font-semibold">Registra tu bolsa</h2>
         <p className="mt-1 text-[14px] text-noche/65">Escanea el QR del empaque o escribe el código que viene dentro de la bolsa.</p>
 
@@ -210,6 +262,13 @@ export default function Recompensas({ ir, codigoInicial }) {
           {error && <p className="mt-3 rounded-xl bg-rosa-50 px-3 py-2 text-[13px] font-semibold text-[#B0446C]">{error}</p>}
           {exito && <p className="mt-3 flex items-center gap-2 rounded-xl bg-menta-100 px-3 py-2 text-[13px] font-semibold text-menta-500"><Check size={15} /> {exito}</p>}
         </div>
+
+        {servidor.servidor && !cliente && (
+          <p className="mt-4 text-center text-[13px] text-noche/65">
+            ¿Ya tienes tarjeta en otro celular?{" "}
+            <button type="button" onClick={() => setRegistro({ motivo: "cuenta" })} className="font-bold text-lavanda-600 underline underline-offset-2">Entra con tu número</button>
+          </p>
+        )}
 
         {!servidor.codigosControlados && (
         <details className="group mt-4 rounded-2xl bg-noche/[.03] p-3 text-[13px]">
@@ -307,6 +366,8 @@ export default function Recompensas({ ir, codigoInicial }) {
       )}
 
       {camara && <EscanerQR alLeer={alLeerQR} alCerrar={() => setCamara(false)} />}
+
+      {registro && <RegistroCliente motivo={registro.motivo} alListo={alRegistrarse} alCerrar={cerrarRegistro} />}
 
       {premio && createPortal(
         <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-noche/70 p-5 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="titulo-premio">

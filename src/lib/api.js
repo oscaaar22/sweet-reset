@@ -149,9 +149,10 @@ export async function validarCodigo(texto) {
       const r = await fetch("/api/codigos/registrar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ codigo, dispositivo: idDispositivo() }),
+        body: JSON.stringify({ codigo, cliente: clienteGuardado()?.id || "" }),
       });
       const j = await r.json();
+      if (j.motivo === "sin-cuenta") guardarCliente(null);
       if (!r.ok) return { ok: false, motivo: j.motivo || "invalido" };
       return { ok: true, codigo, servidor: { sellos: j.sellos, premio: Boolean(j.premio), cupon: j.cupon || null } };
     } catch {
@@ -159,6 +160,75 @@ export async function validarCodigo(texto) {
     }
   }
   return { ok: true, codigo };
+}
+
+// ---------- Cuenta del cliente (sin contraseña: nombre + celular) ----------
+const CLAVE_CLIENTE = "sweet-reset:cliente";
+let clienteMemoria = null; // por si el navegador bloquea el almacenamiento
+
+/** Cliente guardado en este celular: { id, nombre } o null. */
+export function clienteGuardado() {
+  try {
+    const c = JSON.parse(localStorage.getItem(CLAVE_CLIENTE) || "null");
+    return c && c.id ? c : clienteMemoria;
+  } catch {
+    return clienteMemoria;
+  }
+}
+
+function guardarCliente(c) {
+  clienteMemoria = c ? { id: c.id, nombre: c.nombre } : null;
+  try {
+    if (c) localStorage.setItem(CLAVE_CLIENTE, JSON.stringify({ id: c.id, nombre: c.nombre }));
+    else localStorage.removeItem(CLAVE_CLIENTE);
+  } catch {
+    /* sin almacenamiento */
+  }
+}
+
+/** Olvida la cuenta en este celular (no borra nada del servidor). */
+export function cerrarCuenta() {
+  guardarCliente(null);
+}
+
+/**
+ * Registra o recupera la cuenta con nombre y celular.
+ * @returns {Promise<{ok: true, cliente, nuevo, estado} | {ok: false, motivo, error?}>}
+ */
+export async function registrarCliente({ nombre, telefono, acepta }) {
+  try {
+    const r = await fetch("/api/clientes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nombre, telefono, acepta, anterior: idDispositivo() }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 429) return { ok: false, motivo: "limite" };
+    if (!r.ok) return { ok: false, motivo: j.motivo || "red", error: j.error };
+    guardarCliente(j.cliente);
+    return { ok: true, cliente: j.cliente, nuevo: j.nuevo, estado: j.estado };
+  } catch {
+    return { ok: false, motivo: "red" };
+  }
+}
+
+/** Trae del servidor la tarjeta del cliente guardado. null si no hay cuenta o no hay red. */
+export async function cargarCliente() {
+  const c = clienteGuardado();
+  if (!c || !(await hayServidor())) return null;
+  try {
+    const r = await fetch("/api/clientes/" + encodeURIComponent(c.id));
+    if (r.status === 404) {
+      guardarCliente(null);
+      return { sinCuenta: true };
+    }
+    if (!r.ok) return null;
+    const j = await r.json();
+    guardarCliente(j.cliente);
+    return { cliente: j.cliente, estado: j.estado };
+  } catch {
+    return null;
+  }
 }
 
 function idDispositivo() {

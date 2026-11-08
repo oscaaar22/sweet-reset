@@ -59,6 +59,19 @@ function reducer(estado, accion) {
       return { ...estado, pausas: estado.pausas + (accion.n || 1) };
     case "SUMAR_MINUTOS":
       return { ...estado, minutosEscucha: estado.minutosEscucha + accion.minutos };
+    case "SINCRONIZAR": {
+      // La tarjeta de la cuenta vive en el servidor: así se ve igual en cualquier celular.
+      const e = accion.estado || {};
+      const fecha = (f) => (f ? new Date(f).getTime() : Date.now());
+      return {
+        ...estado,
+        sellos: (e.sellos || []).slice(-SELLOS_PARA_PREMIO).map((x) => ({ codigo: x.codigo, fecha: fecha(x.fecha) })),
+        usados: e.usados || [],
+        cupones: (e.cupones || []).map((c) => ({ cupon: c.cupon, fecha: fecha(c.creado), canjeado: Boolean(c.canjeado) })),
+      };
+    }
+    case "VACIAR_TARJETA":
+      return { ...estado, sellos: [], usados: [], cupones: [] };
     case "REINICIAR":
       return ESTADO_INICIAL;
     default:
@@ -89,6 +102,8 @@ export function ProveedorEstado({ children }) {
         return { ok: true, codigo, premio, cupon };
       },
       canjearCupon: (cupon) => dispatch({ tipo: "CANJEAR_CUPON", cupon }),
+      sincronizar: (estadoServidor) => dispatch({ tipo: "SINCRONIZAR", estado: estadoServidor }),
+      vaciarTarjeta: () => dispatch({ tipo: "VACIAR_TARJETA" }),
       guardarReto: (reto, dia) => dispatch({ tipo: "GUARDAR_RETO", reto, dia }),
       sumarPausa: (n) => dispatch({ tipo: "SUMAR_PAUSA", n }),
       sumarMinutos: (minutos) => dispatch({ tipo: "SUMAR_MINUTOS", minutos }),

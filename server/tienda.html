@@ -9,7 +9,7 @@
   :root { --bg:#F6F4FB; --fg:#2E2A5C; --suave:#6B6790; --tarjeta:#fff; --borde:#E2DEF0; --ok:#2F8F5B; --mal:#C2410C; --acento:#7E6BB8; }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; padding:24px max(16px, env(safe-area-inset-left)); }
-  main { max-width:440px; margin:0 auto; display:grid; gap:16px; }
+  main { max-width:720px; margin:0 auto; display:grid; gap:16px; }
   h1 { font-size:22px; margin:0; }
   p { margin:0; color:var(--suave); }
   .tarjeta { background:var(--tarjeta); border:1px solid var(--borde); border-radius:16px; padding:20px; display:grid; gap:12px; }
@@ -24,13 +24,19 @@
   .ok { color:var(--ok); } .mal { color:var(--mal); }
   dl { display:grid; grid-template-columns:1fr auto; gap:4px 12px; margin:0; }
   dd { margin:0; font-weight:700; text-align:right; }
+  .tabla { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--borde); white-space:nowrap; }
+  th { font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--suave); }
+  td.n { text-align:right; font-variant-numeric:tabular-nums; }
+  #buscar { font-size:16px; letter-spacing:0; }
 </style>
 </head>
 <body>
 <main>
   <div>
     <h1>Caja · Sweet Reset</h1>
-    <p>Verifica y canjea los cupones de paquete gratis que muestran los clientes.</p>
+    <p>Verifica y canjea los cupones de paquete gratis y consulta la lista de clientes.</p>
   </div>
   <form class="tarjeta" id="f">
     <label for="pin">PIN de tienda</label>
@@ -46,6 +52,15 @@
   <section class="tarjeta">
     <div class="fila"><button type="button" class="sec" id="ver-resumen">Ver resumen</button></div>
     <dl id="resumen" hidden></dl>
+  </section>
+  <section class="tarjeta">
+    <div class="fila">
+      <button type="button" class="sec" id="ver-clientes">Lista de clientes</button>
+      <button type="button" class="sec" id="descargar" hidden>Descargar Excel (CSV)</button>
+    </div>
+    <input id="buscar" placeholder="Buscar por nombre o celular" autocomplete="off" hidden>
+    <p id="total-clientes" hidden></p>
+    <div class="tabla" id="tabla" hidden></div>
   </section>
 </main>
 <script>
@@ -64,7 +79,7 @@ $("verificar").onclick = async () => {
   if (r.status === 404) return mostrar("Ese cupón no existe. No lo entregues.", false);
   if (!r.ok) return mostrar("No se pudo verificar. Intenta de nuevo.", false);
   if (j.canjeado) return mostrar(`${j.cupon} ya se canjeó el ${fecha(j.canjeado)}.`, false);
-  mostrar(`${j.cupon} es válido (ganado el ${fecha(j.creado)}). Puedes canjearlo.`, true);
+  mostrar(`${j.cupon} es válido${j.cliente ? `, de ${j.cliente}` : ""} (ganado el ${fecha(j.creado)}). Puedes canjearlo.`, true);
 };
 $("f").onsubmit = async (e) => {
   e.preventDefault();
@@ -72,7 +87,7 @@ $("f").onsubmit = async (e) => {
   $("canjear").disabled = true;
   const { r, j } = await pedir("/api/cupones/canjear", { pin: $("pin").value, cupon: $("cupon").value });
   $("canjear").disabled = false;
-  if (r.ok) { mostrar(`Listo: ${j.cupon.cupon} canjeado. Entrega un paquete gratis.`, true); $("cupon").value = ""; return; }
+  if (r.ok) { mostrar(`Listo: ${j.cupon.cupon} canjeado${j.cliente ? ` para ${j.cliente}` : ""}. Entrega un paquete gratis.`, true); $("cupon").value = ""; return; }
   if (j.motivo === "canjeado") return mostrar(`Este cupón ya se canjeó el ${fecha(j.cupon.canjeado)}. No lo entregues.`, false);
   if (j.motivo === "no-existe") return mostrar("Ese cupón no existe. No lo entregues.", false);
   mostrar(j.error || "No se pudo canjear.", false);
@@ -82,12 +97,55 @@ $("ver-resumen").onclick = async () => {
   if (!r.ok) return mostrar("PIN incorrecto.", false);
   const d = $("resumen");
   d.replaceChildren();
-  for (const [k, v] of [["Códigos impresos", j.emitidos], ["Códigos registrados", j.registrados], ["Cupones ganados", j.cupones], ["Cupones canjeados", j.canjeados]]) {
+  for (const [k, v] of [["Clientes registrados", j.clientes ?? 0], ["Códigos impresos", j.emitidos], ["Códigos registrados", j.registrados], ["Cupones ganados", j.cupones], ["Cupones canjeados", j.canjeados]]) {
     const dt = document.createElement("dt"); dt.textContent = k;
     const dd = document.createElement("dd"); dd.textContent = v;
     d.append(dt, dd);
   }
   d.hidden = false;
+};
+let clientes = [];
+const telefono = (t) => String(t || "").replace(/(\d{2})(\d{4})(\d{4})/, "$1 $2 $3");
+const dia = (f) => (f ? new Date(f).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }) : "—");
+function pintarClientes() {
+  const q = $("buscar").value.trim().toLowerCase();
+  const qd = q.replace(/\D/g, "");
+  const lista = clientes.filter((c) => !q || c.nombre.toLowerCase().includes(q) || (qd && c.telefono.includes(qd)));
+  const t = document.createElement("table");
+  const cab = t.createTHead().insertRow();
+  for (const h of ["Nombre", "Celular", "Registro", "Códigos", "Último código", "Cupones", "Canjeados"]) {
+    const th = document.createElement("th"); th.textContent = h; cab.append(th);
+  }
+  const cuerpo = t.createTBody();
+  for (const c of lista) {
+    const f = cuerpo.insertRow();
+    [[c.nombre], [telefono(c.telefono)], [dia(c.creado)], [c.codigos, 1], [dia(c.ultimo)], [c.cupones, 1], [c.canjeados, 1]].forEach(([v, n]) => {
+      const td = f.insertCell(); td.textContent = v; if (n) td.className = "n";
+    });
+  }
+  $("tabla").replaceChildren(t);
+  $("total-clientes").textContent = q ? `${lista.length} de ${clientes.length} clientes` : clientes.length === 1 ? "1 cliente registrado" : `${clientes.length} clientes registrados`;
+}
+$("ver-clientes").onclick = async () => {
+  const { r, j } = await pedir("/api/tienda/clientes", { pin: $("pin").value });
+  if (!r.ok) return mostrar("PIN incorrecto.", false);
+  try { sessionStorage.setItem("pin", $("pin").value); } catch {}
+  clientes = j.clientes || [];
+  for (const id of ["buscar", "total-clientes", "tabla", "descargar"]) $(id).hidden = false;
+  pintarClientes();
+};
+$("buscar").oninput = pintarClientes;
+$("descargar").onclick = () => {
+  const celda = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const filas = [["Nombre", "Celular", "Fecha de registro", "Códigos registrados", "Último código", "Cupones ganados", "Cupones canjeados"]];
+  for (const c of clientes) filas.push([c.nombre, c.telefono, dia(c.creado), c.codigos, dia(c.ultimo), c.cupones, c.canjeados]);
+  // BOM para que Excel abra bien los acentos.
+  const csv = "\ufeff" + filas.map((f) => f.map(celda).join(",")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = `clientes-sweet-reset-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
 </script>
 </body>

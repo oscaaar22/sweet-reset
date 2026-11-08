@@ -85,12 +85,39 @@ app.post("/api/reto", limite, async (req, res) => {
 
 const limiteCodigos = crearLimite(30);
 
+// ---------- Clientes ----------
+// Registro sin contraseña: nombre y celular (10 dígitos). Con el mismo celular se recupera la cuenta.
+const limpiarTelefono = (t) => String(t || "").replace(/\D/g, "").slice(-10);
+const limpiarNombre = (t) => String(t || "").replace(/\s+/g, " ").trim().slice(0, 60);
+
+app.post("/api/clientes", limiteCodigos, async (req, res) => {
+  const nombre = limpiarNombre(req.body?.nombre);
+  const telefono = limpiarTelefono(req.body?.telefono);
+  const anterior = String(req.body?.anterior || "").slice(0, 64);
+  if (nombre.length < 2) return res.status(400).json({ motivo: "nombre", error: "Escribe tu nombre." });
+  if (telefono.length !== 10) return res.status(400).json({ motivo: "telefono", error: "El celular debe tener 10 dígitos." });
+  if (req.body?.acepta !== true) return res.status(400).json({ motivo: "aviso", error: "Acepta el aviso de privacidad." });
+  try {
+    const { cliente, nuevo } = await almacen.registrarCliente({ nombre, telefono, anterior });
+    res.json({ cliente: { id: cliente.id, nombre: cliente.nombre }, nuevo, estado: await almacen.estadoCliente(cliente.id) });
+  } catch (e) {
+    console.error("Error al registrar cliente:", e);
+    res.status(500).json({ motivo: "red" });
+  }
+});
+
+app.get("/api/clientes/:id", limiteCodigos, async (req, res) => {
+  const cliente = await almacen.clientePorId(String(req.params.id).slice(0, 64));
+  if (!cliente) return res.status(404).json({ motivo: "sin-cuenta" });
+  res.json({ cliente: { id: cliente.id, nombre: cliente.nombre }, estado: await almacen.estadoCliente(cliente.id) });
+});
+
 app.post("/api/codigos/registrar", limiteCodigos, async (req, res) => {
   const codigo = formatearCodigo(req.body?.codigo);
-  const dispositivo = String(req.body?.dispositivo || "").slice(0, 64);
+  const dispositivo = String(req.body?.cliente || "").slice(0, 64);
   if (!codigo) return res.status(400).json({ motivo: "formato" });
-  if (dispositivo.length < 8) return res.status(400).json({ motivo: "formato" });
   try {
+    if (!dispositivo || !(await almacen.clientePorId(dispositivo))) return res.status(401).json({ motivo: "sin-cuenta" });
     if (!esCodigoValido(codigo)) return res.status(404).json({ motivo: "invalido" });
     if ((await hayLista()) && !(await esCodigoImpreso(codigo))) return res.status(404).json({ motivo: "invalido" });
     const r = await almacen.registrar(codigo, dispositivo);
@@ -107,7 +134,7 @@ const limpiarCupon = (t) => String(t || "").toUpperCase().replace(/[^A-Z0-9]/g, 
 app.get("/api/cupones/:cupon", limiteCodigos, async (req, res) => {
   const cupon = await almacen.consultarCupon("NSR-" + limpiarCupon(req.params.cupon));
   if (!cupon) return res.status(404).json({ motivo: "no-existe" });
-  res.json({ cupon: cupon.cupon, creado: cupon.creado, canjeado: cupon.canjeado });
+  res.json({ cupon: cupon.cupon, creado: cupon.creado, canjeado: cupon.canjeado, cliente: cupon.nombre || null });
 });
 
 // Canje: lo hace el personal de la tienda desde /tienda con el PIN.
@@ -116,12 +143,18 @@ app.post("/api/cupones/canjear", limiteCodigos, async (req, res) => {
   if (String(req.body?.pin || "") !== PIN_TIENDA) return res.status(401).json({ motivo: "pin", error: "PIN incorrecto." });
   const r = await almacen.canjearCupon("NSR-" + limpiarCupon(req.body?.cupon));
   if (!r.ok) return res.status(r.motivo === "no-existe" ? 404 : 409).json(r);
-  res.json(r);
+  const info = await almacen.consultarCupon(r.cupon.cupon);
+  res.json({ ...r, cliente: info?.nombre || null });
 });
 
 app.post("/api/tienda/resumen", limiteCodigos, async (req, res) => {
   if (!PIN_TIENDA || String(req.body?.pin || "") !== PIN_TIENDA) return res.status(401).json({ motivo: "pin" });
   res.json(await almacen.resumen());
+});
+
+app.post("/api/tienda/clientes", limiteCodigos, async (req, res) => {
+  if (!PIN_TIENDA || String(req.body?.pin || "") !== PIN_TIENDA) return res.status(401).json({ motivo: "pin" });
+  res.json({ clientes: await almacen.listaClientes() });
 });
 
 // Página sencilla para la caja: verificar y canjear cupones.

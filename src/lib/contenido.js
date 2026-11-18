@@ -94,8 +94,8 @@ export const PATRONES_RESPIRACION = [
 export const SONIDOS = [
   { id: "lluvia", grupo: "naturaleza", nombre: "Lluvia tranquila", descripcion: "Lluvia pareja sobre el techo, sin truenos", color: "cielo" },
   { id: "olas", grupo: "naturaleza", nombre: "Olas del mar", descripcion: "Olas que llegan y se van, lentas", color: "lavanda" },
-  { id: "arroyo", grupo: "naturaleza", nombre: "Arroyo en el bosque", descripcion: "Agua corriendo entre las piedras", color: "menta" },
-  { id: "chimenea", grupo: "naturaleza", nombre: "Chimenea", descripcion: "Leña que truena despacio, calientita", color: "miel" },
+  { id: "lago", grupo: "naturaleza", nombre: "Lago en calma", descripcion: "Agua que llega despacio a la orilla", color: "menta" },
+  { id: "campanas", grupo: "naturaleza", nombre: "Campanas de viento", descripcion: "Brisa suave y campanitas a lo lejos", color: "miel" },
   { id: "noche", grupo: "naturaleza", nombre: "Noche de campo", descripcion: "Grillos a lo lejos y brisa suave", color: "lavanda" },
   { id: "piano", grupo: "musica", nombre: "Piano en calma", descripcion: "Notas suaves de piano, sin prisa", color: "rosa" },
   { id: "lluvia-piano", grupo: "musica", nombre: "Piano bajo la lluvia", descripcion: "Piano tranquilo con lluvia de fondo", color: "cielo" },

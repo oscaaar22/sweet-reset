@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { Play, Pause, Volume2, CloudRain, Waves, Timer, Wind, Radio, AudioLines, AudioWaveform, Headphones, Sun, Brain, Sparkles, BedDouble, Droplets, Flame, Moon, Music, CloudDrizzle, Sunset, Music2, BellRing, MoonStar, Feather, LoaderCircle } from "lucide-react";
+import { Play, Pause, Volume2, CloudRain, Waves, Timer, Wind, Radio, AudioLines, AudioWaveform, Headphones, Sun, Brain, Sparkles, BedDouble, Droplets, Moon, Music, CloudDrizzle, Sunset, Music2, BellRing, Bell, MoonStar, Feather, LoaderCircle } from "lucide-react";
 import Encabezado, { AvisoBienestar } from "../components/Encabezado.jsx";
 import { SONIDOS, GRUPOS_SONIDO } from "../lib/contenido.js";
 import { useReproductor, reproductor } from "../lib/reproductor.js";
 
 const ICONOS = {
-  lluvia: CloudRain, olas: Waves, arroyo: Droplets, chimenea: Flame, noche: Moon,
+  lluvia: CloudRain, olas: Waves, lago: Droplets, campanas: Bell, noche: Moon,
   piano: Music, "lluvia-piano": CloudDrizzle, atardecer: Sunset, kalimba: Music2, cuencos: BellRing, sueno: MoonStar,
   "ruido-blanco": Radio, "ruido-rosa": AudioLines, "ruido-cafe": Wind,
   "hz-396": Feather, "hz-432": AudioWaveform, "hz-528": Sun, alfa: Brain, theta: Sparkles, delta: BedDouble,

@@ -358,41 +358,62 @@ def olas(semilla=71):
     return reverberar(mezcla, 0.12, t60=1.5)
 
 
-def arroyo(semilla=81):
-    p = Pista(60, semilla)
+def lago(semilla=81):
+    """Orilla de un lago en calma: agua que llega despacio, brisa y alguna gota lejana."""
+    p = Pista(96, semilla)
     rng = p.rng
-    base = filtrar(color(p.ruido(), 1.0), 300, 6000, 2) * 0.5
-    burb = Pista(60, semilla + 1)
-    for _ in range(int(p.P * 140)):
-        f0 = rng.uniform(450, 2400)
-        dur = rng.uniform(0.012, 0.05)
-        n = int((dur * 5) * SR)
+    # Pequeñas ondas que tocan la orilla, cada 3 a 5 s, suaves y redondas.
+    env = Pista(96, semilla + 1)
+    t = 0.0
+    while t < p.P:
+        sube, baja = rng.uniform(0.9, 1.5), rng.uniform(1.8, 3.0)
+        n = int((sube + baja * 2) * SR)
         tt = np.arange(n) / SR
-        sigma = rng.uniform(2, 9)
-        s = np.sin(2 * np.pi * f0 * (tt + sigma * tt * tt / 2)) * np.exp(-tt / dur) * (1 - np.exp(-tt / 0.0015))
-        burb.agregar(paneo(s * rng.uniform(0.15, 1.0), rng.uniform(-0.7, 0.7)), rng.uniform(0, p.P))
-    b = burb.buf / (np.sqrt(np.mean(burb.buf ** 2)) + 1e-12)
-    mezcla = b * 0.55 + base * envolvente_lenta(rng, p.N, 0.3, 0.2)
-    return reverberar(mezcla, 0.2, t60=1.0)
+        e = np.where(tt < sube, np.sin(np.pi / 2 * tt / sube) ** 2, np.exp(-(tt - sube) / (baja / 2.5)))
+        env.agregar(paneo(e * rng.uniform(0.5, 1.0), rng.uniform(-0.5, 0.5)), t)
+        t += rng.uniform(3.0, 5.0)
+    e = env.buf / (env.buf.max() + 1e-12)
+    ruido = p.ruido()
+    agua = filtrar(color(ruido, 1.5), 60, 900, 2) * (0.15 + 0.85 * e) + filtrar(color(ruido, 1.0), 900, 3500, 2) * (0.02 + 0.3 * e ** 2)
+    brisa = filtrar(color(p.ruido(), 1.6), 80, 1200, 2) * envolvente_lenta(rng, p.N, 0.05, 0.45) * 0.35
+    # Gotitas lejanas, muy pocas y quietas.
+    gotas = Pista(96, semilla + 2)
+    for _ in range(int(p.P * 0.6)):
+        f = rng.uniform(700, 1400)
+        n = int(0.12 * SR)
+        tt = np.arange(n) / SR
+        s_ = np.sin(2 * np.pi * f * (1 + 2.5 * tt) * tt) * np.exp(-tt / 0.03) * (1 - np.exp(-tt / 0.002))
+        gotas.agregar(paneo(s_ * rng.uniform(0.05, 0.14), rng.uniform(-0.8, 0.8)), rng.uniform(0, p.P))
+    mezcla = agua / (np.sqrt(np.mean(agua ** 2)) + 1e-12) + 0.45 * brisa / (np.sqrt(np.mean(brisa ** 2)) + 1e-12) * 0.6
+    mezcla = mezcla + gotas.buf * 3
+    return reverberar(mezcla, 0.3, t60=2.4, brillo=0.6)
 
 
-def chimenea(semilla=91):
-    p = Pista(60, semilla)
+def campanas_viento(semilla=91):
+    """Campanas de viento de tubo con escala pentatónica, movidas por una brisa suave."""
+    p = Pista(120, semilla)
     rng = p.rng
-    rugido = filtrar(color(p.ruido(), 1.8), 40, 700, 2) * envolvente_lenta(rng, p.N, 0.4, 0.35)
-    chasq = Pista(60, semilla + 1)
-    for _ in range(int(p.P * 18)):
-        n = int(rng.uniform(0.002, 0.012) * SR)
-        s = rng.standard_normal(n) * np.exp(-np.arange(n) / (n / 4))
-        chasq.agregar(paneo(s * min(rng.pareto(2.5), 5.0) * 0.4, rng.uniform(-0.5, 0.5)), rng.uniform(0, p.P))
-    for _ in range(int(p.P * 1.2)):  # pequeños truenos de la leña
-        n = int(0.03 * SR)
-        s = rng.standard_normal(n) * np.exp(-np.arange(n) / (0.006 * SR))
-        chasq.agregar(paneo(s * rng.uniform(0.8, 1.6), rng.uniform(-0.4, 0.4)), rng.uniform(0, p.P))
-    c = filtrar(chasq.buf, 900, 9000, 2)
+    ventarron = envolvente_lenta(rng, p.N, 0.04, 0.6)
+    brisa = filtrar(color(p.ruido(), 1.5), 90, 1400, 2) * ventarron
+    notas = [midi(n) for n in (72, 74, 76, 79, 81, 84)]  # do mayor pentatónica
+    parciales = [(1.0, 1.0, 1.0), (2.76, 0.35, 0.55), (5.40, 0.12, 0.3), (8.93, 0.04, 0.18)]  # tubo libre
+    t = rng.uniform(0, 1)
+    while t < p.P:
+        f = notas[rng.integers(len(notas))]
+        dur = 7.0
+        n = int(dur * SR)
+        tt = np.arange(n) / SR
+        s_ = np.zeros(n)
+        for (r_, a, dec) in parciales:
+            s_ += a * np.sin(2 * np.pi * f * r_ * tt + rng.uniform(0, 6.28)) * np.exp(-tt / (dur * dec / 2.2))
+        s_ *= 1 - np.exp(-tt / 0.003)
+        p.agregar(paneo(s_ * rng.uniform(0.08, 0.2), rng.uniform(-0.7, 0.7)), t)
+        fuerza = ventarron[int(t * SR) % p.N]
+        t += rng.exponential(1.6 / max(fuerza, 0.4)) + 0.25
+    c = reverberar(p.buf, 0.45, t60=4.0, brillo=0.8)
     c /= np.sqrt(np.mean(c ** 2)) + 1e-12
-    r = rugido / (np.sqrt(np.mean(rugido ** 2)) + 1e-12)
-    return reverberar(r * 0.75 + c * 0.42, 0.18, t60=0.9)
+    b = brisa / (np.sqrt(np.mean(brisa ** 2)) + 1e-12)
+    return c + 0.35 * b
 
 
 def noche(semilla=101):
@@ -470,8 +491,8 @@ def binaural(base, pulso, segundos=60, semilla=131, pad_notas=()):
 CATALOGO = {
     "lluvia": (lluvia_sola, 128, -21),
     "olas": (olas, 128, -21),
-    "arroyo": (arroyo, 128, -22),
-    "chimenea": (chimenea, 128, -22),
+    "lago": (lago, 128, -22),
+    "campanas": (campanas_viento, 128, -22),
     "noche": (noche, 112, -24),
     "piano": (piano_calma, 128, -21),
     "atardecer": (atardecer, 112, -21),

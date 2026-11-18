@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { Play, Pause, Volume2, CloudRain, Waves, Trees, Moon, Timer, Wind, Radio, AudioLines, AudioWaveform, Headphones, Sun, Brain, Sparkles, BedDouble } from "lucide-react";
+import { Play, Pause, Volume2, CloudRain, Waves, Timer, Wind, Radio, AudioLines, AudioWaveform, Headphones, Sun, Brain, Sparkles, BedDouble, Droplets, Flame, Moon, Music, CloudDrizzle, Sunset, Music2, BellRing, MoonStar, Feather, LoaderCircle } from "lucide-react";
 import Encabezado, { AvisoBienestar } from "../components/Encabezado.jsx";
 import { SONIDOS, GRUPOS_SONIDO } from "../lib/contenido.js";
 import { useReproductor, reproductor } from "../lib/reproductor.js";
 
 const ICONOS = {
-  lluvia: CloudRain, olas: Waves, bosque: Trees, estrellas: Moon,
+  lluvia: CloudRain, olas: Waves, arroyo: Droplets, chimenea: Flame, noche: Moon,
+  piano: Music, "lluvia-piano": CloudDrizzle, atardecer: Sunset, kalimba: Music2, cuencos: BellRing, sueno: MoonStar,
   "ruido-blanco": Radio, "ruido-rosa": AudioLines, "ruido-cafe": Wind,
-  "hz-432": AudioWaveform, "hz-528": Sun, alfa: Brain, theta: Sparkles, delta: BedDouble,
+  "hz-396": Feather, "hz-432": AudioWaveform, "hz-528": Sun, alfa: Brain, theta: Sparkles, delta: BedDouble,
 };
 const TONOS = {
   cielo: "from-cielo-200 to-cielo-100 text-[#4A6FB0]",
@@ -28,6 +29,12 @@ export default function Escucha({ ir }) {
   const [ahora, setAhora] = useState(Date.now());
   const [seleccion, setSeleccion] = useState(r.id || "lluvia");
 
+  // Descarga el sonido elegido de antemano para que empiece al instante.
+  useEffect(() => {
+    if (!r.id) reproductor.precargar(seleccion);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seleccion]);
+
   useEffect(() => {
     if (!r.id) return;
     const t = setInterval(() => setAhora(Date.now()), 500);
@@ -38,7 +45,7 @@ export default function Escucha({ ir }) {
   const Icono = ICONOS[activo.id];
   const sonando = Boolean(r.id);
   const total = r.duracionMin * 60000;
-  const transcurrido = sonando ? ahora - r.inicio : 0;
+  const transcurrido = sonando && !r.cargando ? ahora - r.inicio : 0;
   const progreso = sonando && total ? Math.min(1, transcurrido / total) : 0;
 
   const alternar = () => (sonando ? reproductor.detener() : reproductor.reproducir(seleccion));
@@ -79,8 +86,9 @@ export default function Escucha({ ir }) {
         </div>
 
         <button type="button" onClick={alternar} className="boton-primario mt-4 h-14 w-14 !p-0" aria-label={sonando ? "Pausar" : "Reproducir"}>
-          {sonando ? <Pause size={24} /> : <Play size={24} className="ml-0.5" />}
+          {r.cargando ? <LoaderCircle size={24} className="animate-spin" /> : sonando ? <Pause size={24} /> : <Play size={24} className="ml-0.5" />}
         </button>
+        {r.cargando && <p className="mt-3 text-[13px] font-bold text-noche/60">Preparando el sonido…</p>}
         {r.error && <p className="mt-3 text-sm font-bold text-rosa-400">{r.error}</p>}
 
         <div className="mx-auto mt-5 flex max-w-xs items-center gap-3">
@@ -134,7 +142,7 @@ export default function Escucha({ ir }) {
                       <span className="block text-[13px] text-noche/60">{s.descripcion}</span>
                     </span>
                     <span className={`grid h-9 w-9 place-items-center rounded-full ${esteSuena ? "bg-lavanda-500 text-white" : "bg-lavanda-50 text-lavanda-500"}`} aria-hidden="true">
-                      {esteSuena ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
+                      {esteSuena && r.cargando ? <LoaderCircle size={16} className="animate-spin" /> : esteSuena ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
                     </span>
                   </button>
                 </li>
@@ -143,7 +151,7 @@ export default function Escucha({ ir }) {
           </ul>
         </section>
       ))}
-      <p className="mt-4 text-center text-[12px] text-noche/55">Los sonidos se generan en tu celular en tiempo real; no gastan datos.</p>
+      <p className="mt-4 text-center text-[12px] text-noche/55">Audio en alta calidad. Cada sonido se descarga una sola vez (1 a 2 MB) y se repite sin cortes.</p>
       <AvisoBienestar />
     </div>
   );

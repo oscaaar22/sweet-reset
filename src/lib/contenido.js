@@ -92,22 +92,31 @@ export const PATRONES_RESPIRACION = [
 ];
 
 export const SONIDOS = [
-  { id: "lluvia", grupo: "naturaleza", nombre: "Lluvia suave", descripcion: "Lluvia constante sobre el techo", color: "cielo" },
-  { id: "olas", grupo: "naturaleza", nombre: "Olas del mar", descripcion: "Oleaje lento que va y viene", color: "lavanda" },
-  { id: "bosque", grupo: "naturaleza", nombre: "Bosque al amanecer", descripcion: "Viento entre árboles y pájaros", color: "menta" },
-  { id: "estrellas", grupo: "naturaleza", nombre: "Cielo estrellado", descripcion: "Música ambiental en notas suaves", color: "rosa" },
-  { id: "ruido-blanco", grupo: "ruido", nombre: "Ruido blanco", descripcion: "Tapa el ruido de fuera para estudiar o dormir", color: "cielo" },
+  { id: "lluvia", grupo: "naturaleza", nombre: "Lluvia tranquila", descripcion: "Lluvia pareja sobre el techo, sin truenos", color: "cielo" },
+  { id: "olas", grupo: "naturaleza", nombre: "Olas del mar", descripcion: "Olas que llegan y se van, lentas", color: "lavanda" },
+  { id: "arroyo", grupo: "naturaleza", nombre: "Arroyo en el bosque", descripcion: "Agua corriendo entre las piedras", color: "menta" },
+  { id: "chimenea", grupo: "naturaleza", nombre: "Chimenea", descripcion: "Leña que truena despacio, calientita", color: "miel" },
+  { id: "noche", grupo: "naturaleza", nombre: "Noche de campo", descripcion: "Grillos a lo lejos y brisa suave", color: "lavanda" },
+  { id: "piano", grupo: "musica", nombre: "Piano en calma", descripcion: "Notas suaves de piano, sin prisa", color: "rosa" },
+  { id: "lluvia-piano", grupo: "musica", nombre: "Piano bajo la lluvia", descripcion: "Piano tranquilo con lluvia de fondo", color: "cielo" },
+  { id: "atardecer", grupo: "musica", nombre: "Atardecer", descripcion: "Acordes cálidos que envuelven", color: "miel" },
+  { id: "kalimba", grupo: "musica", nombre: "Kalimba de cuna", descripcion: "Melodía dulce y ligera", color: "menta" },
+  { id: "cuencos", grupo: "musica", nombre: "Cuencos tibetanos", descripcion: "Vibraciones largas para meditar", color: "lavanda" },
+  { id: "sueno", grupo: "musica", nombre: "Para dormir", descripcion: "Música muy lenta y grave para conciliar el sueño", color: "cielo" },
+  { id: "ruido-blanco", grupo: "ruido", nombre: "Ruido blanco", descripcion: "Ruido blanco real: tapa los sonidos de fuera", color: "cielo" },
   { id: "ruido-rosa", grupo: "ruido", nombre: "Ruido rosa", descripcion: "Más suave que el blanco, como lluvia pareja", color: "rosa" },
   { id: "ruido-cafe", grupo: "ruido", nombre: "Ruido café", descripcion: "Grave y profundo, como un avión en vuelo", color: "miel" },
-  { id: "hz-432", grupo: "frecuencia", nombre: "432 Hz · Calma", descripcion: "Tono cálido y envolvente para bajar el ritmo", color: "lavanda" },
+  { id: "hz-396", grupo: "frecuencia", nombre: "396 Hz · Soltar", descripcion: "Tono grave y cálido para soltar la tensión", color: "rosa" },
+  { id: "hz-432", grupo: "frecuencia", nombre: "432 Hz · Calma", descripcion: "Tono envolvente para bajar el ritmo", color: "lavanda" },
   { id: "hz-528", grupo: "frecuencia", nombre: "528 Hz · Armonía", descripcion: "Tono luminoso para empezar el día tranquilo", color: "menta" },
   { id: "alfa", grupo: "frecuencia", nombre: "Ondas alfa · Enfoque", descripcion: "Pulso de 10 Hz para concentrarte relajado", color: "cielo", audifonos: true },
-  { id: "theta", grupo: "frecuencia", nombre: "Ondas theta · Relajación", descripcion: "Pulso de 6 Hz para soltar la tensión", color: "rosa", audifonos: true },
+  { id: "theta", grupo: "frecuencia", nombre: "Ondas theta · Relajación", descripcion: "Pulso de 6 Hz para soltar el estrés", color: "rosa", audifonos: true },
   { id: "delta", grupo: "frecuencia", nombre: "Ondas delta · Dormir", descripcion: "Pulso de 2 Hz para preparar el sueño", color: "lavanda", audifonos: true },
 ];
 
 export const GRUPOS_SONIDO = [
   { id: "naturaleza", nombre: "Naturaleza" },
+  { id: "musica", nombre: "Música relajante" },
   { id: "ruido", nombre: "Ruido de fondo" },
   { id: "frecuencia", nombre: "Frecuencias relajantes" },
 ];

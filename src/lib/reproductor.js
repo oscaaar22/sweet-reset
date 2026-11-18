@@ -2,7 +2,7 @@
 import { useSyncExternalStore } from "react";
 import { paisaje } from "./audio.js";
 
-let estado = { id: null, inicio: 0, duracionMin: 10, volumen: 0.7, error: null };
+let estado = { id: null, inicio: 0, duracionMin: 10, volumen: 0.7, error: null, cargando: false };
 const oyentes = new Set();
 let temporizador = null;
 let alTerminar = null;
@@ -21,19 +21,28 @@ export const reproductor = {
     try {
       paisaje.ajustarVolumen(estado.volumen);
       this._cerrarSesion();
-      paisaje.reproducir(id);
       clearTimeout(temporizador);
-      if (duracionMin) temporizador = setTimeout(() => this.detener(), duracionMin * 60000);
-      emitir({ id, inicio: Date.now(), duracionMin, error: null });
+      emitir({ id, inicio: Date.now(), duracionMin, error: null, cargando: true });
+      paisaje
+        .reproducir(id)
+        .then(() => {
+          if (estado.id !== id) return;
+          emitir({ cargando: false, inicio: Date.now() });
+          if (duracionMin) temporizador = setTimeout(() => this.detener(), duracionMin * 60000);
+        })
+        .catch((e) => {
+          if (estado.id === id) emitir({ id: null, inicio: 0, cargando: false, error: e.message || "No se pudo reproducir el sonido." });
+        });
     } catch (e) {
-      emitir({ error: e.message || "No se pudo reproducir el sonido." });
+      emitir({ id: null, cargando: false, error: e.message || "No se pudo reproducir el sonido." });
     }
   },
+  precargar(id) { paisaje.precargar(id); },
   detener() {
     clearTimeout(temporizador);
     this._cerrarSesion();
     paisaje.detener();
-    emitir({ id: null, inicio: 0 });
+    emitir({ id: null, inicio: 0, cargando: false });
   },
   _cerrarSesion() {
     if (estado.id && estado.inicio) {
